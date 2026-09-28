@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENTE
+  ATENDENTE
+  ADMIN
+}
+
+enum Priority {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum TicketStatus {
+  ABERTO
+  EM_ATENDIMENTO
+  AGUARDANDO_CLIENTE
+  RESOLVIDO
+  FECHADO
+}
+
+enum TriageStatus {
+  PENDING
+  ACCEPTED
+  CORRECTED
+  FAILED
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  refreshTokens    RefreshToken[]
+  requestedTickets Ticket[]        @relation("requester")
+  assignedTickets  Ticket[]        @relation("assignee")
+  comments         Comment[]
+  historyEntries   TicketHistory[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tickets Ticket[]
+}
+
+model Ticket {
+  id              String       @id @default(uuid()) @db.Uuid
+  title           String
+  description     String
+  priority        Priority     @default(MEDIA)
+  status          TicketStatus @default(ABERTO)
+  categoryId      String?      @db.Uuid
+  requesterId     String       @db.Uuid
+  assigneeId      String?      @db.Uuid
+  slaDueAt        DateTime
+  slaBreached     Boolean      @default(false)
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  category  Category?         @relation(fields: [categoryId], references: [id])
+  requester User              @relation("requester", fields: [requesterId], references: [id])
+  assignee  User?             @relation("assignee", fields: [assigneeId], references: [id])
+  comments  Comment[]
+  history   TicketHistory[]
+  triage    TriageSuggestion?
+
+  // Índices para os filtros da listagem
+  @@index([status])
+  @@index([priority])
+  @@index([categoryId])
+  @@index([assigneeId])
+  @@index([requesterId])
+  @@index([createdAt])
+  // Job de SLA: "chamados não estourados cujo prazo já passou"
+  @@index([slaBreached, slaDueAt])
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @db.Uuid
+  authorId  String   @db.Uuid
+  body      String
+  internal  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+model TicketHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @db.Uuid
+  actorId   String?  @db.Uuid // null = ação do sistema (ex.: job de SLA, worker)
+  field     String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+model TriageSuggestion {
+  id                String       @id @default(uuid()) @db.Uuid
+  ticketId          String       @unique @db.Uuid // UNIQUE = base da idempotência do worker
+  status            TriageStatus @default(PENDING)
+  suggestedCategory String?
+  suggestedPriority Priority?
+  summary           String?
+  confidence        Float?
+  inputText         String?
+  model             String?
+  error             String?
+  attempts          Int          @default(0)
+  finalCategory     String?
+  finalPriority     Priority?
+  decidedById       String?      @db.Uuid
+  decidedAt         DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}

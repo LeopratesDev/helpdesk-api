@@ -10,7 +10,11 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "jest",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "postinstall": "prisma generate"
   },
   "repository": {
     "type": "git",
@@ -26,6 +30,8 @@
     "@nestjs/common": "^11.2.6",
     "@nestjs/core": "^11.2.6",
     "@nestjs/platform-express": "^11.2.6",
+    "@node-rs/argon2": "^2.2.1",
+    "@prisma/client": "^6.19.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zod": "^4.6.5"
@@ -42,6 +48,7 @@
     "eslint-config-prettier": "^10.1.8",
     "jest": "^30.5.2",
     "prettier": "^3.9.9",
+    "prisma": "^6.19.3",
     "supertest": "^7.3.0",
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
@@ -73,5 +80,8 @@
       "!src/**/*.module.ts"
     ],
     "coverageDirectory": "coverage"
+  },
+  "prisma": {
+    "seed": "ts-node --transpile-only prisma/seed.ts"
   }
 }
