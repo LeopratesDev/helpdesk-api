@@ -1,6 +1,9 @@
 import { validateEnv } from './env.schema';
 
-const required = { DATABASE_URL: 'postgresql://u:p@localhost:5432/db' };
+const required = {
+  DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+  JWT_SECRET: 'x'.repeat(32),
+};
 
 describe('validateEnv', () => {
   it('aplica valores padrão quando variáveis opcionais faltam', () => {
@@ -21,5 +24,13 @@ describe('validateEnv', () => {
 
   it('lança erro quando DATABASE_URL obrigatória falta', () => {
     expect(() => validateEnv({})).toThrow(/DATABASE_URL/);
+  });
+});
+
+describe('validateEnv — JWT', () => {
+  it('rejeita JWT_SECRET curto', () => {
+    expect(() =>
+      validateEnv({ DATABASE_URL: 'postgresql://u:p@localhost:5432/db', JWT_SECRET: 'curto' }),
+    ).toThrow(/JWT_SECRET/);
   });
 });
