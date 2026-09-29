@@ -2,6 +2,7 @@ import { validateEnv } from './env.schema';
 
 const required = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+  REDIS_URL: 'redis://localhost:6379',
   JWT_SECRET: 'x'.repeat(32),
 };
 
