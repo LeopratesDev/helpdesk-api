@@ -29,7 +29,8 @@ enum TicketStatus {
 }
 
 enum TriageStatus {
-  PENDING
+  PENDING // aguardando o worker/LLM
+  SUGGESTED // sugestão pronta, aguardando o atendente
   ACCEPTED
   CORRECTED
   FAILED
