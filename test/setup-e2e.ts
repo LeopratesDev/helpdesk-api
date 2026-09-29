@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { RedisContainer } from '@testcontainers/redis';
 import { hash } from '@node-rs/argon2';
 import { Role } from '@prisma/client';
 import { execSync } from 'node:child_process';
@@ -15,26 +16,28 @@ export const PASSWORD = 'Senha@123';
 export interface TestContext {
   app: INestApplication<App>;
   prisma: PrismaService;
+  redisUrl: string;
   stop: () => Promise<void>;
 }
 
 /**
- * Sobe um PostgreSQL real em container (Testcontainers), aplica as migrations
+ * Sobe PostgreSQL e Redis reais em containers (Testcontainers), aplica as migrations
  * e cria a aplicação Nest completa (guards, pipes, filtro) — igual à produção.
+ * ANTHROPIC_API_KEY fica vazia: nenhum teste chama o LLM de verdade.
  */
 export async function createTestApp(env: Record<string, string> = {}): Promise<TestContext> {
-  const pg: StartedPostgreSqlContainer = await new PostgreSqlContainer(
-    'postgres:17-alpine',
-  ).start();
-  const databaseUrl = pg.getConnectionUri();
+  const [pg, redis] = await Promise.all([
+    new PostgreSqlContainer('postgres:17-alpine').start(),
+    new RedisContainer('redis:7-alpine').start(),
+  ]);
 
   Object.assign(process.env, {
     NODE_ENV: 'test',
     LOG_LEVEL: 'silent',
-    DATABASE_URL: databaseUrl,
+    DATABASE_URL: pg.getConnectionUri(),
+    REDIS_URL: redis.getConnectionUrl(),
     JWT_SECRET: 'test-secret-with-at-least-32-characters!!',
-    // A API ainda não usa Redis; suítes que precisam sobem um container e sobrescrevem
-    REDIS_URL: 'redis://localhost:6379',
+    ANTHROPIC_API_KEY: '',
     ...env,
   });
   execSync('npx prisma migrate deploy', { env: process.env, stdio: 'ignore' });
@@ -47,9 +50,10 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
   return {
     app,
     prisma: app.get(PrismaService),
+    redisUrl: redis.getConnectionUrl(),
     stop: async () => {
       await app.close();
-      await pg.stop();
+      await Promise.all([pg.stop(), redis.stop()]);
     },
   };
 }
@@ -69,4 +73,14 @@ export async function loginAs(app: INestApplication<App>, email: string): Promis
     .post('/auth/login')
     .send({ email, password: PASSWORD });
   return (res.body as { accessToken: string }).accessToken;
+}
+
+/** Espera uma condição assíncrona virar verdadeira (para efeitos do worker). */
+export async function waitFor(check: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(`Condição não satisfeita em ${timeoutMs} ms`);
 }
