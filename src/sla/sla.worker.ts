@@ -2,10 +2,10 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nest
 import { Queue, Worker } from 'bullmq';
 import { ENV } from '../config/config.module';
 import { Env } from '../config/env.schema';
+import { SLA_QUEUE } from '../queue/queue.constants';
 import { redisConnection } from '../queue/redis-connection';
 import { SlaService } from './sla.service';
 
-export const SLA_QUEUE = 'sla';
 const SCHEDULER_ID = 'sla-check';
 
 /**
