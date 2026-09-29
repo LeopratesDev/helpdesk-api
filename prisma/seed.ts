@@ -70,6 +70,12 @@ const PATH_TO: Record<TicketStatus, TicketStatus[]> = {
 const STATUSES = Object.keys(PATH_TO) as TicketStatus[];
 
 async function main(): Promise<void> {
+  // No Docker o seed roda a cada "up": com SEED_IF_EMPTY não apaga dados já existentes
+  if (process.env.SEED_IF_EMPTY === 'true' && (await prisma.user.count()) > 0) {
+    console.log('Seed ignorado: o banco já tem dados.');
+    return;
+  }
+
   // Ordem respeita as FKs; tudo numa transação
   await prisma.$transaction([
     prisma.triageSuggestion.deleteMany(),
