@@ -165,6 +165,27 @@ async function main(): Promise<void> {
       });
     }
 
+    // Sugestão da IA: abertos aguardam decisão; os demais foram aceitos (~75%) ou corrigidos
+    const decided = status !== 'ABERTO';
+    const accepted = decided && rand() < 0.75;
+    const suggestedPriority =
+      decided && !accepted ? pick(PRIORITIES.filter((p) => p !== priority)) : priority;
+    data.triage = {
+      create: {
+        status: !decided ? 'SUGGESTED' : accepted ? 'ACCEPTED' : 'CORRECTED',
+        suggestedCategory: category.name,
+        suggestedPriority,
+        summary: data.title,
+        confidence: Math.round((0.5 + rand() * 0.5) * 100) / 100,
+        inputText: `${data.title}\n\n${data.description}`,
+        model: 'fake',
+        attempts: 1,
+        finalCategory: decided ? category.name : null,
+        finalPriority: decided ? priority : null,
+        decidedAt: decided ? data.firstResponseAt : null,
+      },
+    };
+
     await prisma.ticket.create({ data: { ...data, history: { create: history } } });
   }
 
