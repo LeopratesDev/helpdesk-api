@@ -6,6 +6,7 @@ import { loggerParams } from './common/logger';
 import { ConfigModule, ENV } from './config/config.module';
 import { Env } from './config/env.schema';
 import { HealthModule } from './health/health.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AdminQueuesModule } from './queue/admin-queues.module';
 import { QueueModule } from './queue/queue.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     CategoriesModule,
     TicketsModule,
     TriageModule,
+    MetricsModule,
     AdminQueuesModule,
     HealthModule,
   ],
