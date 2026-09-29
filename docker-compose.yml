@@ -1,3 +1,17 @@
+# Sobe tudo:            docker compose up --build
+# Só banco e Redis (dev): docker compose up postgres redis
+#
+# Valores abaixo são para demonstração local. Em produção, use segredos de verdade.
+x-app-env: &app-env
+  DATABASE_URL: postgresql://helpdesk:helpdesk@postgres:5432/helpdesk?schema=public
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-in-production-0123456789}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  # Vazia = triagem em modo fake. Para usar o Claude: ANTHROPIC_API_KEY=... docker compose up
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-claude-haiku-4-5}
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -22,6 +36,53 @@ services:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       retries: 10
+
+  # Roda uma vez: aplica as migrations e popula o banco se estiver vazio
+  migrate:
+    build:
+      context: .
+      target: deps
+    environment:
+      <<: *app-env
+      SEED_IF_EMPTY: 'true'
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    build: .
+    environment:
+      <<: *app-env
+      PORT: 3000
+    ports:
+      # Porta no seu computador; troque com API_PORT=3100 se a 3000 estiver ocupada
+      - '${API_PORT:-3000}:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ['node', 'dist/worker.js']
+    environment:
+      <<: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:
