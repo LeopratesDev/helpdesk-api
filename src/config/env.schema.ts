@@ -16,6 +16,15 @@ export const envSchema = z.object({
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(5),
+  // Opcional: vazio ou ausente → triagem em modo fake (sem custo)
+  ANTHROPIC_API_KEY: z
+    .string()
+    .optional()
+    .transform((v) => (v?.trim() ? v.trim() : undefined)),
+  LLM_MODEL: z.string().default('claude-haiku-4-5'),
+  LLM_TIMEOUT_MS: z.coerce.number().int().min(100).default(15_000),
+  TRIAGE_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
+  TRIAGE_BACKOFF_MS: z.coerce.number().int().min(10).default(2_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,5 +1,6 @@
 import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TriageProducer } from '../queue/triage.producer';
 import { TicketsService } from './tickets.service';
 
 const ticket = {
@@ -29,7 +30,10 @@ function setup(updatedCount: number) {
     ticket: { findUnique: jest.fn().mockResolvedValue(ticket) },
     $transaction: jest.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
   };
-  return { service: new TicketsService(prisma as unknown as PrismaService), tx };
+  return {
+    service: new TicketsService(prisma as unknown as PrismaService, {} as TriageProducer),
+    tx,
+  };
 }
 
 describe('TicketsService — lock otimista', () => {

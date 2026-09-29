@@ -1,6 +1,5 @@
 import { INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { RedisContainer, StartedRedisContainer } from '@testcontainers/redis';
 import { Priority } from '@prisma/client';
 import { SlaService } from '../src/sla/sla.service';
 import { computeSlaDueAt } from '../src/sla/sla.policy';
@@ -12,7 +11,6 @@ const HOUR = 3_600_000;
 
 describe('SLA: marcação de vencidos e job agendado (integração)', () => {
   let ctx: TestContext;
-  let redis: StartedRedisContainer;
   let requesterId: string;
 
   /** Cria um chamado aberto "horas" atrás, com o prazo calculado pela política real. */
@@ -32,17 +30,14 @@ describe('SLA: marcação de vencidos e job agendado (integração)', () => {
   };
 
   beforeAll(async () => {
-    redis = await new RedisContainer('redis:7-alpine').start();
-    ctx = await createTestApp({ REDIS_URL: redis.getConnectionUrl() });
+    ctx = await createTestApp();
     requesterId = (await createUser(ctx.prisma, 'CLIENTE')).id;
   }, 180_000);
 
-  afterAll(async () => {
-    await ctx?.stop();
-    await redis?.stop();
-  });
+  afterAll(async () => ctx?.stop());
 
   beforeEach(async () => {
+    await ctx.prisma.triageSuggestion.deleteMany();
     await ctx.prisma.comment.deleteMany();
     await ctx.prisma.ticketHistory.deleteMany();
     await ctx.prisma.ticket.deleteMany();

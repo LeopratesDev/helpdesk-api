@@ -7,6 +7,7 @@ import {
 import { Prisma, Ticket } from '@prisma/client';
 import { AuthUser } from '../auth/auth.decorators';
 import { PrismaService } from '../prisma/prisma.service';
+import { TriageProducer } from '../queue/triage.producer';
 import { computeSlaDueAt, isSlaBreached } from '../sla/sla.policy';
 import { canTransition, transitionEffects } from './ticket-status';
 import {
@@ -29,16 +30,22 @@ export type TicketWithRelations = Prisma.TicketGetPayload<{ include: typeof incl
 
 type HistoryEntry = { field: string; oldValue: string | null; newValue: string | null };
 
+/** Passo extra executado dentro da mesma transação da atualização (ex.: aceitar a sugestão da IA). */
+export type InTransaction = (tx: Prisma.TransactionClient) => Promise<void>;
+
 @Injectable()
 export class TicketsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly triageProducer: TriageProducer,
+  ) {}
 
   async create(dto: CreateTicketDto, user: AuthUser): Promise<TicketResponseDto> {
     if (dto.categoryId) await this.assertActiveCategory(dto.categoryId);
     const now = new Date();
     const priority = 'MEDIA';
 
-    // Chamado e primeira linha do histórico na mesma transação (create aninhado)
+    // Chamado, histórico inicial e sugestão PENDING na mesma transação (create aninhado)
     const ticket = await this.prisma.ticket.create({
       data: {
         title: dto.title,
@@ -49,9 +56,13 @@ export class TicketsService {
         slaDueAt: computeSlaDueAt(priority, now),
         createdAt: now,
         history: { create: { field: 'status', newValue: 'ABERTO', actorId: user.id } },
+        triage: { create: {} },
       },
       include,
     });
+    // Só publica depois do commit: o worker nunca recebe um id que ainda não existe no banco.
+    // A chamada ao LLM acontece no worker; a resposta HTTP não espera por ela.
+    await this.triageProducer.enqueue(ticket.id);
     return TicketResponseDto.from(ticket);
   }
 
@@ -147,7 +158,12 @@ export class TicketsService {
     );
   }
 
-  async update(id: string, dto: UpdateTicketDto, user: AuthUser): Promise<TicketResponseDto> {
+  async update(
+    id: string,
+    dto: UpdateTicketDto,
+    user: AuthUser,
+    inTx?: InTransaction,
+  ): Promise<TicketResponseDto> {
     const ticket = await this.getVisible(id, user);
     if (ticket.status === 'FECHADO') {
       throw new UnprocessableEntityException('Chamado fechado não pode ser alterado');
@@ -170,9 +186,12 @@ export class TicketsService {
       data.categoryId = dto.categoryId;
       history.push({ field: 'categoryId', oldValue: ticket.categoryId, newValue: dto.categoryId });
     }
-    if (history.length === 0) return TicketResponseDto.from(ticket);
+    if (history.length === 0) {
+      if (inTx) await this.prisma.$transaction(inTx);
+      return TicketResponseDto.from(ticket);
+    }
 
-    return this.updateWithHistory(ticket, data, history, user);
+    return this.updateWithHistory(ticket, data, history, user, inTx);
   }
 
   /**
@@ -185,6 +204,7 @@ export class TicketsService {
     data: Prisma.TicketUncheckedUpdateInput,
     history: HistoryEntry[],
     user: AuthUser,
+    inTx?: InTransaction,
   ): Promise<TicketResponseDto> {
     const updated = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.ticket.updateMany({
@@ -199,6 +219,7 @@ export class TicketsService {
       await tx.ticketHistory.createMany({
         data: history.map((h) => ({ ...h, ticketId: ticket.id, actorId: user.id })),
       });
+      if (inTx) await inTx(tx);
       return tx.ticket.findUniqueOrThrow({ where: { id: ticket.id }, include });
     });
     return TicketResponseDto.from(updated);
