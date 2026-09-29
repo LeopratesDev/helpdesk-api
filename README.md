@@ -8,6 +8,10 @@
 
 API REST de uma central de suporte: clientes abrem chamados, uma **IA (Claude, da Anthropic) sugere categoria e prioridade em segundo plano**, atendentes tratam a fila e o sistema controla o **SLA**.
 
+![Demonstração: cliente abre chamado, a triagem sai da fila, atendente aceita e vê as métricas](docs/demo.gif)
+
+<sub>Gravado localmente pelo Swagger em modo fake (sem chave de API). Com `ANTHROPIC_API_KEY`, a sugestão vem do Claude.</sub>
+
 ## Por que este projeto existe
 
 Antes de programar, eu trabalhei do outro lado do chamado: atendimento (SAC na Concentrix) e suporte técnico. Vivi a fila sem prioridade clara, o chamado crítico escondido atrás de dez dúvidas simples, o prazo estourado que ninguém viu e o "quem mexeu nisso?" sem resposta.
