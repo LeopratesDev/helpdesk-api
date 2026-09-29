@@ -5,6 +5,7 @@ import { ConfigModule, ENV } from './config/config.module';
 import { Env } from './config/env.schema';
 import { PrismaModule } from './prisma/prisma.module';
 import { SlaModule } from './sla/sla.module';
+import { TriageWorkerModule } from './triage/triage-worker.module';
 
 /** Módulo raiz do processo worker: sem HTTP, só consumidores de fila. */
 @Module({
@@ -13,6 +14,7 @@ import { SlaModule } from './sla/sla.module';
     LoggerModule.forRootAsync({ inject: [ENV], useFactory: (env: Env) => loggerParams(env) }),
     PrismaModule,
     SlaModule,
+    TriageWorkerModule,
   ],
 })
 export class WorkerModule {}
