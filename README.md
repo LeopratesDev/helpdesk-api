@@ -226,4 +226,4 @@ O CI (GitHub Actions) roda lint, typecheck, testes com cobertura, build e o buil
 
 ---
 
-Feito por [**@LeopratesDev**](https://github.com/LeopratesDev) · Outro projeto: [RH Manager](https://github.com/LeopratesDev/rh-manager) (C#/.NET + React)
+Feito por **Leonardo Prates** · [GitHub](https://github.com/LeopratesDev) · Outro projeto: [RH Manager](https://github.com/LeopratesDev/rh-manager) (C#/.NET + React)
