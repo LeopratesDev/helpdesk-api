@@ -10,6 +10,8 @@ export const envSchema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url(),
+  SLA_CHECK_INTERVAL_MS: z.coerce.number().int().min(1000).default(60_000),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET precisa de pelo menos 32 caracteres'),
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),

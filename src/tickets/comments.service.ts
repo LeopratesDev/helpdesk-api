@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.decorators';
 import { PrismaService } from '../prisma/prisma.service';
+import { isSlaBreached } from '../sla/sla.policy';
 import { CommentResponseDto, CreateCommentDto, HistoryEntryDto } from './comments.dto';
 import { TicketsService } from './tickets.service';
 
@@ -41,7 +42,12 @@ export class CommentsService {
         // where com firstResponseAt: null: se outra requisição marcou antes, não sobrescreve
         const { count } = await tx.ticket.updateMany({
           where: { id: ticketId, firstResponseAt: null },
-          data: { firstResponseAt: created.createdAt },
+          data: {
+            firstResponseAt: created.createdAt,
+            slaBreached:
+              ticket.slaBreached ||
+              isSlaBreached(ticket.slaDueAt, created.createdAt, created.createdAt),
+          },
         });
         if (count === 1) {
           history.push({ field: 'firstResponseAt', newValue: created.createdAt.toISOString() });

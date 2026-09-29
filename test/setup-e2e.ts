@@ -33,6 +33,8 @@ export async function createTestApp(env: Record<string, string> = {}): Promise<T
     LOG_LEVEL: 'silent',
     DATABASE_URL: databaseUrl,
     JWT_SECRET: 'test-secret-with-at-least-32-characters!!',
+    // A API ainda não usa Redis; suítes que precisam sobem um container e sobrescrevem
+    REDIS_URL: 'redis://localhost:6379',
     ...env,
   });
   execSync('npx prisma migrate deploy', { env: process.env, stdio: 'ignore' });
