@@ -7,7 +7,7 @@ import {
 import { Prisma, Ticket } from '@prisma/client';
 import { AuthUser } from '../auth/auth.decorators';
 import { PrismaService } from '../prisma/prisma.service';
-import { computeSlaDueAt } from '../sla/sla.policy';
+import { computeSlaDueAt, isSlaBreached } from '../sla/sla.policy';
 import { canTransition, transitionEffects } from './ticket-status';
 import {
   AssignTicketDto,
@@ -113,6 +113,9 @@ export class TicketsService {
       status: dto.status,
       ...transitionEffects(ticket.status, dto.status, !!ticket.firstResponseAt, new Date()),
     };
+    if (data.firstResponseAt instanceof Date && !ticket.slaBreached) {
+      data.slaBreached = isSlaBreached(ticket.slaDueAt, data.firstResponseAt, data.firstResponseAt);
+    }
     const history: HistoryEntry[] = [
       { field: 'status', oldValue: ticket.status, newValue: dto.status },
     ];
